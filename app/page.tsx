@@ -8,6 +8,14 @@ import TaskForm from '@/components/TaskForm'
 import TaskFiltersPanel from '@/components/TaskFilters'
 import SummaryPanel from '@/components/SummaryPanel'
 import Modal from '@/components/Modal'
+import {
+  createLocalTask,
+  filterLocalTasks,
+  patchLocalTask,
+  readLocalTasks,
+  shouldUseLocalTaskStore,
+  writeLocalTasks,
+} from '@/lib/localTasks'
 
 type View = 'all' | 'today' | 'upcoming' | 'high'
 
@@ -49,17 +57,35 @@ export default function App() {
   const [error, setError] = useState('')
 
   const fetchAll = useCallback(async () => {
+    if (shouldUseLocalTaskStore()) {
+      setAllTasks(readLocalTasks())
+      setError('')
+      return
+    }
+
     try {
       const res = await fetch('/api/tasks')
       if (!res.ok) throw new Error(await readApiError(res, 'Не удалось загрузить задачи'))
       setAllTasks(await res.json())
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить задачи')
+      const localTasks = readLocalTasks()
+      setAllTasks(localTasks)
+      setError('')
+      console.warn(e instanceof Error ? e.message : 'Не удалось загрузить задачи')
     }
   }, [])
 
   const fetchFiltered = useCallback(async () => {
     setLoading(true)
+    if (shouldUseLocalTaskStore()) {
+      const localTasks = readLocalTasks()
+      setAllTasks(localTasks)
+      setTasks(filterLocalTasks(localTasks, filters))
+      setError('')
+      setLoading(false)
+      return
+    }
+
     try {
       const params = new URLSearchParams()
       if (filters.status) params.set('status', filters.status)
@@ -69,7 +95,11 @@ export default function App() {
       if (!res.ok) throw new Error(await readApiError(res, 'Не удалось применить фильтры'))
       setTasks(await res.json())
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось применить фильтры')
+      const localTasks = readLocalTasks()
+      setAllTasks(localTasks)
+      setTasks(filterLocalTasks(localTasks, filters))
+      setError('')
+      console.warn(e instanceof Error ? e.message : 'Не удалось применить фильтры')
     } finally {
       setLoading(false)
     }
@@ -149,47 +179,100 @@ export default function App() {
   })()
 
   const handleCreate = async (data: Partial<Task>) => {
-    const res = await fetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) {
-      const message = await readApiError(res, 'Не удалось создать задачу')
-      setError(message)
-      throw new Error(message)
+    if (shouldUseLocalTaskStore()) {
+      const task = createLocalTask(data)
+      writeLocalTasks([task, ...readLocalTasks()])
+      upsertTaskLocally(task)
+      setCreateOpen(false)
+      setError('')
+      return
     }
-    const task = await res.json()
-    upsertTaskLocally(task)
+
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Не удалось создать задачу'))
+      }
+      const task = await res.json()
+      upsertTaskLocally(task)
+    } catch {
+      const task = createLocalTask(data)
+      writeLocalTasks([task, ...readLocalTasks()])
+      upsertTaskLocally(task)
+    }
     setCreateOpen(false)
     setError('')
   }
 
   const handleUpdate = async (id: string, data: Partial<Task>) => {
-    const res = await fetch(`/api/tasks/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) {
-      const message = await readApiError(res, 'Не удалось обновить задачу')
-      setError(message)
-      throw new Error(message)
+    const updateLocal = () => {
+      const storedTasks = readLocalTasks()
+      const sourceTasks = storedTasks.some((task) => task.id === id) ? storedTasks : allTasks
+      let updatedTask: Task | null = null
+      const nextTasks = sourceTasks.map((task) => {
+        if (task.id !== id) return task
+        updatedTask = patchLocalTask(task, data)
+        return updatedTask
+      })
+
+      if (!updatedTask) throw new Error('Задача не найдена')
+
+      writeLocalTasks(nextTasks)
+      upsertTaskLocally(updatedTask)
     }
-    const task = await res.json()
-    upsertTaskLocally(task)
+
+    if (shouldUseLocalTaskStore()) {
+      updateLocal()
+      setEditTask(null)
+      setError('')
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Не удалось обновить задачу'))
+      }
+      const task = await res.json()
+      upsertTaskLocally(task)
+    } catch {
+      updateLocal()
+    }
     setEditTask(null)
     setError('')
   }
 
   const handleDelete = async (id: string) => {
-    const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const message = await readApiError(res, 'Не удалось удалить задачу')
-      setError(message)
-      throw new Error(message)
+    const deleteLocal = () => {
+      const storedTasks = readLocalTasks()
+      const sourceTasks = storedTasks.some((task) => task.id === id) ? storedTasks : allTasks
+      writeLocalTasks(sourceTasks.filter((task) => task.id !== id))
+      removeTaskLocally(id)
     }
-    removeTaskLocally(id)
+
+    if (shouldUseLocalTaskStore()) {
+      deleteLocal()
+      setError('')
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Не удалось удалить задачу'))
+      }
+      removeTaskLocally(id)
+    } catch {
+      deleteLocal()
+    }
     setError('')
   }
 
@@ -198,23 +281,39 @@ export default function App() {
   }
 
   const handleCreateSubtasks = async (parentTitle: string, subtasks: string[]) => {
-    const responses = await Promise.all(
-      subtasks.map((title) =>
-        fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, description: `К задаче: ${parentTitle}`, priority: 'medium', status: 'pending' }),
-        })
+    const createLocalSubtasks = () => {
+      const createdTasks = subtasks.map((title) =>
+        createLocalTask({ title, description: `К задаче: ${parentTitle}`, priority: 'medium', status: 'pending' })
       )
-    )
-    const failed = responses.find((res) => !res.ok)
-    if (failed) {
-      const message = await readApiError(failed, 'Не удалось создать подзадачи')
-      setError(message)
-      throw new Error(message)
+      writeLocalTasks([...createdTasks, ...readLocalTasks()])
+      createdTasks.forEach(upsertTaskLocally)
     }
-    const createdTasks = await Promise.all(responses.map((res) => res.json()))
-    createdTasks.forEach(upsertTaskLocally)
+
+    if (shouldUseLocalTaskStore()) {
+      createLocalSubtasks()
+      setError('')
+      return
+    }
+
+    try {
+      const responses = await Promise.all(
+        subtasks.map((title) =>
+          fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, description: `К задаче: ${parentTitle}`, priority: 'medium', status: 'pending' }),
+          })
+        )
+      )
+      const failed = responses.find((res) => !res.ok)
+      if (failed) {
+        throw new Error(await readApiError(failed, 'Не удалось создать подзадачи'))
+      }
+      const createdTasks = await Promise.all(responses.map((res) => res.json()))
+      createdTasks.forEach(upsertTaskLocally)
+    } catch {
+      createLocalSubtasks()
+    }
     setError('')
   }
 

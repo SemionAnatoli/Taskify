@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+PROJECT_CONTEXT.txt
+.cursor/rules/
 
 # debug
 npm-debug.log*
