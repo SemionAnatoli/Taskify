@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const PRIORITIES = ['low', 'medium', 'high']
+const STATUSES = ['pending', 'in_progress', 'done']
+
+function validateDate(value: unknown) {
+  if (!value) return null
+  const date = new Date(String(value))
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -33,19 +42,33 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { title, description, priority, status, dueDate } = body
+    const { title, description, category, priority, status, dueDate } = body
 
-    if (!title || title.trim() === '') {
+    if (typeof title !== 'string' || title.trim() === '') {
       return NextResponse.json({ error: 'Название обязательно' }, { status: 400 })
+    }
+
+    if (priority && !PRIORITIES.includes(priority)) {
+      return NextResponse.json({ error: 'Некорректный приоритет' }, { status: 400 })
+    }
+
+    if (status && !STATUSES.includes(status)) {
+      return NextResponse.json({ error: 'Некорректный статус' }, { status: 400 })
+    }
+
+    const parsedDueDate = validateDate(dueDate)
+    if (parsedDueDate === undefined) {
+      return NextResponse.json({ error: 'Некорректная дата срока' }, { status: 400 })
     }
 
     const task = await prisma.task.create({
       data: {
         title: title.trim(),
-        description: description?.trim() || null,
+        description: typeof description === 'string' ? description.trim() || null : null,
+        category: typeof category === 'string' ? category.trim() || null : null,
         priority: priority || 'medium',
         status: status || 'pending',
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: parsedDueDate,
       },
     })
 

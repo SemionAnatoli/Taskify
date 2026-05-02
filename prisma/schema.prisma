@@ -7,13 +7,14 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model Task {
   id        String   @id @default(cuid())
   title     String
   description String?
+  category  String?
   priority  String   @default("medium") // low, medium, high
   status    String   @default("pending") // pending, in_progress, done
   dueDate   DateTime?

@@ -5,6 +5,7 @@ export interface Task {
   id: string
   title: string
   description: string | null
+  category: string | null
   priority: Priority
   status: Status
   dueDate: string | null

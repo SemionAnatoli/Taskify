@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const PRIORITIES = ['low', 'medium', 'high']
+const STATUSES = ['pending', 'in_progress', 'done']
+
+function validateDate(value: unknown) {
+  if (!value) return null
+  const date = new Date(String(value))
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,20 +32,34 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { title, description, priority, status, dueDate } = body
+    const { title, description, category, priority, status, dueDate } = body
 
-    if (title !== undefined && title.trim() === '') {
+    if (title !== undefined && (typeof title !== 'string' || title.trim() === '')) {
       return NextResponse.json({ error: 'Название не может быть пустым' }, { status: 400 })
+    }
+
+    if (priority !== undefined && !PRIORITIES.includes(priority)) {
+      return NextResponse.json({ error: 'Некорректный приоритет' }, { status: 400 })
+    }
+
+    if (status !== undefined && !STATUSES.includes(status)) {
+      return NextResponse.json({ error: 'Некорректный статус' }, { status: 400 })
+    }
+
+    const parsedDueDate = dueDate !== undefined ? validateDate(dueDate) : undefined
+    if (parsedDueDate === undefined && dueDate !== undefined) {
+      return NextResponse.json({ error: 'Некорректная дата срока' }, { status: 400 })
     }
 
     const task = await prisma.task.update({
       where: { id },
       data: {
         ...(title !== undefined && { title: title.trim() }),
-        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(description !== undefined && { description: typeof description === 'string' ? description.trim() || null : null }),
+        ...(category !== undefined && { category: typeof category === 'string' ? category.trim() || null : null }),
         ...(priority !== undefined && { priority }),
         ...(status !== undefined && { status }),
-        ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+        ...(dueDate !== undefined && { dueDate: parsedDueDate }),
       },
     })
 

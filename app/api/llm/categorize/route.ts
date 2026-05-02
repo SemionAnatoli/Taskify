@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { askLlama, parseLlamaJson } from '@/lib/llama'
+import { suggestCategory } from '@/lib/taskHeuristics'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+type CategoryResult = {
+  category: string
+  reason: string
+}
 
 // POST /api/llm/categorize — умная категоризация задачи (US-3)
 export async function POST(req: NextRequest) {
+  let payload: { title?: string; description?: string | null } = {}
+
   try {
-    const { title, description } = await req.json()
+    payload = await req.json()
+    const { title, description } = payload
 
     if (!title) {
       return NextResponse.json({ error: 'Название задачи обязательно' }, { status: 400 })
@@ -22,26 +29,20 @@ export async function POST(req: NextRequest) {
 
 Примеры категорий: Работа, Учёба, Личное, Здоровье, Финансы, Покупки, Дом, Проект, Встречи`
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'Ты помощник для управления задачами. Отвечай только валидным JSON без markdown-блоков.',
-        },
-        { role: 'user', content: prompt },
-      ],
+    const { text, model } = await askLlama({
+      system: 'Ты помощник для управления задачами. Отвечай только валидным JSON без markdown-блоков.',
+      prompt,
       temperature: 0.3,
-      max_tokens: 150,
+      maxTokens: 150,
     })
+    const result = parseLlamaJson<CategoryResult>(text)
 
-    const text = completion.choices[0]?.message?.content || ''
-    const cleaned = text.replace(/```json|```/g, '').trim()
-    const result = JSON.parse(cleaned)
-
-    return NextResponse.json(result)
+    return NextResponse.json({ ...result, source: 'llama', model })
   } catch (error) {
     console.error('LLM categorize error:', error)
+    if (payload.title) {
+      return NextResponse.json({ ...suggestCategory(payload.title, payload.description), source: 'local' })
+    }
     return NextResponse.json({ error: 'Ошибка LLM категоризации' }, { status: 500 })
   }
 }

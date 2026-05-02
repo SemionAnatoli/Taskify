@@ -48,6 +48,7 @@ export default function TaskFiltersPanel({ filters, onChange }: Props) {
         const active = filters.status === s
         return (
           <button
+            type="button"
             key={s}
             onClick={() => update('status', active ? '' : s)}
             className="px-3 py-2 text-xs rounded-lg border font-medium transition-all"
@@ -68,6 +69,7 @@ export default function TaskFiltersPanel({ filters, onChange }: Props) {
         const active = filters.priority === p
         return (
           <button
+            type="button"
             key={p}
             onClick={() => update('priority', active ? '' : p)}
             className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border font-medium transition-all"
@@ -88,6 +90,7 @@ export default function TaskFiltersPanel({ filters, onChange }: Props) {
 
       {hasActive && (
         <button
+          type="button"
           onClick={() => onChange({ status: '', priority: '', search: '' })}
           className="px-3 py-2 text-xs rounded-lg transition-colors"
           style={{ color: 'var(--text-secondary)' }}

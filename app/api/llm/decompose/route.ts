@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { askLlama, parseLlamaJson } from '@/lib/llama'
+import { decomposeTask } from '@/lib/taskHeuristics'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+type DecomposeResult = {
+  subtasks: string[]
+}
 
 // POST /api/llm/decompose — декомпозиция задачи на подзадачи (US-4)
 export async function POST(req: NextRequest) {
+  let payload: { title?: string; description?: string | null } = {}
+
   try {
-    const { title, description } = await req.json()
+    payload = await req.json()
+    const { title, description } = payload
 
     if (!title) {
       return NextResponse.json({ error: 'Название задачи обязательно' }, { status: 400 })
@@ -20,26 +26,20 @@ export async function POST(req: NextRequest) {
 Ответь ТОЛЬКО JSON-объектом без лишнего текста:
 {"subtasks": ["подзадача 1", "подзадача 2", "подзадача 3"]}`
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'Ты помощник для управления задачами. Отвечай только валидным JSON без markdown-блоков.',
-        },
-        { role: 'user', content: prompt },
-      ],
+    const { text, model } = await askLlama({
+      system: 'Ты помощник для управления задачами. Отвечай только валидным JSON без markdown-блоков.',
+      prompt,
       temperature: 0.5,
-      max_tokens: 300,
+      maxTokens: 300,
     })
+    const result = parseLlamaJson<DecomposeResult>(text)
 
-    const text = completion.choices[0]?.message?.content || ''
-    const cleaned = text.replace(/```json|```/g, '').trim()
-    const result = JSON.parse(cleaned)
-
-    return NextResponse.json(result)
+    return NextResponse.json({ ...result, source: 'llama', model })
   } catch (error) {
     console.error('LLM decompose error:', error)
+    if (payload.title) {
+      return NextResponse.json({ subtasks: decomposeTask(payload.title, payload.description), source: 'local' })
+    }
     return NextResponse.json({ error: 'Ошибка LLM декомпозиции' }, { status: 500 })
   }
 }

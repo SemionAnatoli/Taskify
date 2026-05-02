@@ -18,6 +18,26 @@ const VIEW_TITLES: Record<View, string> = {
   high: 'Срочные',
 }
 
+async function readApiError(res: Response, fallback: string) {
+  try {
+    const data = await res.json()
+    return data.error ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function taskMatchesFilters(task: Task, filters: TaskFilters) {
+  const search = filters.search.trim().toLowerCase()
+
+  if (filters.status && task.status !== filters.status) return false
+  if (filters.priority && task.priority !== filters.priority) return false
+  if (!search) return true
+
+  return [task.title, task.description ?? '']
+    .some((value) => value.toLowerCase().includes(search))
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
@@ -26,34 +46,79 @@ export default function App() {
   const [filters, setFilters] = useState<TaskFilters>({ status: '', priority: '', search: '' })
   const [createOpen, setCreateOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
+  const [error, setError] = useState('')
 
   const fetchAll = useCallback(async () => {
-    const res = await fetch('/api/tasks')
-    if (res.ok) setAllTasks(await res.json())
+    try {
+      const res = await fetch('/api/tasks')
+      if (!res.ok) throw new Error(await readApiError(res, 'Не удалось загрузить задачи'))
+      setAllTasks(await res.json())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось загрузить задачи')
+    }
   }, [])
 
   const fetchFiltered = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (filters.status) params.set('status', filters.status)
-    if (filters.priority) params.set('priority', filters.priority)
-    if (filters.search) params.set('search', filters.search)
-    const res = await fetch(`/api/tasks?${params}`)
-    if (res.ok) setTasks(await res.json())
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      if (filters.status) params.set('status', filters.status)
+      if (filters.priority) params.set('priority', filters.priority)
+      if (filters.search) params.set('search', filters.search)
+      const res = await fetch(`/api/tasks?${params}`)
+      if (!res.ok) throw new Error(await readApiError(res, 'Не удалось применить фильтры'))
+      setTasks(await res.json())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось применить фильтры')
+    } finally {
+      setLoading(false)
+    }
   }, [filters])
 
   useEffect(() => {
-    fetchAll()
+    const timeoutId = window.setTimeout(() => {
+      void fetchAll()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchAll])
 
   useEffect(() => {
-    fetchFiltered()
+    const timeoutId = window.setTimeout(() => {
+      void fetchFiltered()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchFiltered])
 
-  const refresh = async () => {
-    await Promise.all([fetchAll(), fetchFiltered()])
-  }
+  const upsertTaskLocally = useCallback((task: Task) => {
+    setAllTasks((current) => {
+      const exists = current.some((item) => item.id === task.id)
+      return exists
+        ? current.map((item) => item.id === task.id ? task : item)
+        : [task, ...current]
+    })
+
+    setTasks((current) => {
+      const exists = current.some((item) => item.id === task.id)
+      const matches = taskMatchesFilters(task, filters)
+
+      if (exists && matches) {
+        return current.map((item) => item.id === task.id ? task : item)
+      }
+
+      if (exists && !matches) {
+        return current.filter((item) => item.id !== task.id)
+      }
+
+      return matches ? [task, ...current] : current
+    })
+  }, [filters])
+
+  const removeTaskLocally = useCallback((id: string) => {
+    setAllTasks((current) => current.filter((task) => task.id !== id))
+    setTasks((current) => current.filter((task) => task.id !== id))
+  }, [])
 
   const visibleTasks = (() => {
     const today = new Date()
@@ -89,10 +154,15 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (res.ok) {
-      setCreateOpen(false)
-      await refresh()
+    if (!res.ok) {
+      const message = await readApiError(res, 'Не удалось создать задачу')
+      setError(message)
+      throw new Error(message)
     }
+    const task = await res.json()
+    upsertTaskLocally(task)
+    setCreateOpen(false)
+    setError('')
   }
 
   const handleUpdate = async (id: string, data: Partial<Task>) => {
@@ -101,19 +171,34 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (res.ok) {
-      setEditTask(null)
-      await refresh()
+    if (!res.ok) {
+      const message = await readApiError(res, 'Не удалось обновить задачу')
+      setError(message)
+      throw new Error(message)
     }
+    const task = await res.json()
+    upsertTaskLocally(task)
+    setEditTask(null)
+    setError('')
   }
 
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-    if (res.ok) await refresh()
+    if (!res.ok) {
+      const message = await readApiError(res, 'Не удалось удалить задачу')
+      setError(message)
+      throw new Error(message)
+    }
+    removeTaskLocally(id)
+    setError('')
+  }
+
+  const handleApplyCategory = async (id: string, category: string) => {
+    await handleUpdate(id, { category })
   }
 
   const handleCreateSubtasks = async (parentTitle: string, subtasks: string[]) => {
-    await Promise.all(
+    const responses = await Promise.all(
       subtasks.map((title) =>
         fetch('/api/tasks', {
           method: 'POST',
@@ -122,20 +207,28 @@ export default function App() {
         })
       )
     )
-    await refresh()
+    const failed = responses.find((res) => !res.ok)
+    if (failed) {
+      const message = await readApiError(failed, 'Не удалось создать подзадачи')
+      setError(message)
+      throw new Error(message)
+    }
+    const createdTasks = await Promise.all(responses.map((res) => res.json()))
+    createdTasks.forEach(upsertTaskLocally)
+    setError('')
   }
 
   const done = allTasks.filter((t) => t.status === 'done').length
   const active = allTasks.filter((t) => t.status !== 'done').length
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
       <Sidebar view={view} onViewChange={setView} tasks={allTasks} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
         <header
-          className="flex items-center justify-between px-6 py-4 border-b shrink-0"
+          className="flex items-center justify-between gap-3 px-4 py-3 border-b shrink-0 sm:px-6 sm:py-4"
           style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
         >
           <div>
@@ -147,8 +240,9 @@ export default function App() {
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white font-medium transition-opacity hover:opacity-90"
+            className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg text-sm text-white font-medium transition-opacity hover:opacity-90 sm:px-4"
             style={{ background: 'var(--accent)' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -159,7 +253,23 @@ export default function App() {
         </header>
 
         {/* Main scroll area */}
-        <main className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 sm:px-6 sm:py-5">
+          {error && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
+              style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#991b1b' }}
+            >
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="shrink-0 text-xs font-medium"
+              >
+                Закрыть
+              </button>
+            </div>
+          )}
+
           <SummaryPanel tasks={allTasks} />
 
           <TaskFiltersPanel filters={filters} onChange={setFilters} />
@@ -203,6 +313,7 @@ export default function App() {
                   onUpdate={handleUpdate}
                   onDelete={handleDelete}
                   onEdit={setEditTask}
+                  onApplyCategory={handleApplyCategory}
                   onCreateSubtasks={handleCreateSubtasks}
                 />
               ))}

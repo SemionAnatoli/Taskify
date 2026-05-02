@@ -27,7 +27,7 @@ export default function Modal({ title, onClose, children }: Props) {
       onClick={(e) => e.target === overlayRef.current && onClose()}
     >
       <div
-        className="w-full max-w-lg rounded-2xl shadow-2xl animate-fade-in"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl shadow-2xl animate-fade-in"
         style={{ background: 'var(--card)' }}
       >
         <div
@@ -38,6 +38,7 @@ export default function Modal({ title, onClose, children }: Props) {
             {title}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100"
           >

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+import { askLlama } from '@/lib/llama'
+import { summarizeTasks } from '@/lib/taskHeuristics'
+import type { Task } from '@/lib/types'
 
 // POST /api/llm/summary — сводка рабочей нагрузки (US-6)
 export async function POST(req: NextRequest) {
+  let payload: { tasks?: Task[] } = {}
+
   try {
-    const { tasks } = await req.json()
+    payload = await req.json() as { tasks?: Task[] }
+    const { tasks } = payload
 
     if (!tasks || tasks.length === 0) {
       return NextResponse.json({ summary: 'Список задач пуст. Добавьте задачи для получения сводки.' })
@@ -17,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     const taskList = tasks
       .map(
-        (t: { title: string; priority: string; status: string; dueDate?: string }, i: number) =>
+        (t, i) =>
           `${i + 1}. "${t.title}" — приоритет: ${priorityMap[t.priority] || t.priority}, статус: ${statusMap[t.status] || t.status}${
             t.dueDate ? `, срок: ${new Date(t.dueDate).toLocaleDateString('ru-RU')}` : ''
           }`
@@ -33,23 +36,16 @@ ${taskList}
 
 Напиши сводку в 3-5 предложениях: сколько задач, какие срочные, какое распределение нагрузки, что стоит сделать в первую очередь.`
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'Ты дружелюбный ассистент менеджера задач. Говоришь кратко, по делу, на русском языке.',
-        },
-        { role: 'user', content: prompt },
-      ],
+    const { text, model } = await askLlama({
+      system: 'Ты дружелюбный ассистент менеджера задач. Говоришь кратко, по делу, на русском языке.',
+      prompt,
       temperature: 0.6,
-      max_tokens: 400,
+      maxTokens: 400,
     })
 
-    const summary = completion.choices[0]?.message?.content || ''
-    return NextResponse.json({ summary })
+    return NextResponse.json({ summary: text, source: 'llama', model })
   } catch (error) {
     console.error('LLM summary error:', error)
-    return NextResponse.json({ error: 'Ошибка получения сводки' }, { status: 500 })
+    return NextResponse.json({ summary: summarizeTasks(payload.tasks ?? []), source: 'local' })
   }
 }

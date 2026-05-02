@@ -12,6 +12,7 @@ interface Props {
 export default function TaskForm({ task, onSave, onCancel }: Props) {
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')
+  const [category, setCategory] = useState(task?.category ?? '')
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'medium')
   const [status, setStatus] = useState<Status>(task?.status ?? 'pending')
   const [dueDate, setDueDate] = useState(
@@ -29,9 +30,16 @@ export default function TaskForm({ task, onSave, onCancel }: Props) {
     setSaving(true)
     setError('')
     try {
-      await onSave({ title: title.trim(), description: description.trim() || undefined, priority, status, dueDate: dueDate || null })
-    } catch {
-      setError('Не удалось сохранить')
+      await onSave({
+        title: title.trim(),
+        description: description.trim() || null,
+        category: category.trim() || null,
+        priority,
+        status,
+        dueDate: dueDate || null,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось сохранить')
     } finally {
       setSaving(false)
     }
@@ -80,6 +88,20 @@ export default function TaskForm({ task, onSave, onCancel }: Props) {
           placeholder="Дополнительные детали..."
           rows={3}
           className={inputClass + ' resize-none'}
+          style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+        />
+      </div>
+
+      <div>
+        <label className={labelClass} style={{ color: 'var(--text-secondary)' }}>
+          Категория
+        </label>
+        <input
+          type="text"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          placeholder="Например: Работа, Дом, Учеба"
+          className={inputClass}
           style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
         />
       </div>

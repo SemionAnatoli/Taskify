@@ -10,13 +10,13 @@ interface Props {
   tasks: Task[]
 }
 
-const today = new Date()
-today.setHours(0, 0, 0, 0)
-
-const tomorrow = new Date(today)
-tomorrow.setDate(tomorrow.getDate() + 7)
-
 function count(tasks: Task[], view: View): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const weekEnd = new Date(today)
+  weekEnd.setDate(weekEnd.getDate() + 7)
+
   switch (view) {
     case 'all':
       return tasks.filter((t) => t.status !== 'done').length
@@ -32,7 +32,7 @@ function count(tasks: Task[], view: View): number {
         if (!t.dueDate || t.status === 'done') return false
         const d = new Date(t.dueDate)
         d.setHours(0, 0, 0, 0)
-        return d > today && d <= tomorrow
+        return d > today && d <= weekEnd
       }).length
     case 'high':
       return tasks.filter((t) => t.priority === 'high' && t.status !== 'done').length
@@ -87,11 +87,11 @@ export default function Sidebar({ view, onViewChange, tasks }: Props) {
 
   return (
     <aside
-      className="flex flex-col h-full w-60 shrink-0"
+      className="flex h-auto w-full shrink-0 flex-col md:h-full md:w-60"
       style={{ background: 'var(--sidebar-bg)' }}
     >
       {/* Logo */}
-      <div className="px-5 py-5 flex items-center gap-3">
+      <div className="px-4 py-4 flex items-center gap-3 md:px-5 md:py-5">
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
           style={{ background: 'var(--accent)' }}
@@ -102,15 +102,16 @@ export default function Sidebar({ view, onViewChange, tasks }: Props) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto sidebar-scrollbar">
+      <nav className="flex gap-1 overflow-x-auto px-3 pb-3 sidebar-scrollbar md:flex-1 md:flex-col md:gap-0 md:space-y-0.5 md:overflow-y-auto md:pb-0">
         {NAV_ITEMS.map((item) => {
           const c = count(tasks, item.id)
           const active = view === item.id
           return (
             <button
+              type="button"
               key={item.id}
               onClick={() => onViewChange(item.id)}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors group"
+              className="flex min-w-max items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors group md:w-full md:min-w-0"
               style={{
                 background: active ? 'var(--sidebar-active)' : 'transparent',
                 color: active ? 'var(--sidebar-text-active)' : 'var(--sidebar-text)',
@@ -143,7 +144,7 @@ export default function Sidebar({ view, onViewChange, tasks }: Props) {
       </nav>
 
       {/* Progress block */}
-      <div className="mx-4 mb-5 mt-3 p-3 rounded-xl" style={{ background: 'var(--sidebar-hover)' }}>
+      <div className="mx-4 mb-5 mt-3 hidden rounded-xl p-3 md:block" style={{ background: 'var(--sidebar-hover)' }}>
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-medium" style={{ color: 'var(--sidebar-text)' }}>
             Прогресс
