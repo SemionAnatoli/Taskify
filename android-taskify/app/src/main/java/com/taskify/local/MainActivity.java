@@ -284,7 +284,13 @@ public final class MainActivity extends Activity {
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.HORIZONTAL);
         body.setGravity(Gravity.TOP);
-        body.setPadding(dp(10), dp(10), dp(9), dp(10));
+        body.setMinimumHeight(dp(TaskCardLayoutMetrics.TASK_BODY_MIN_HEIGHT_DP));
+        body.setPadding(
+            dp(10),
+            dp(TaskCardLayoutMetrics.BODY_VERTICAL_PADDING_DP),
+            dp(8),
+            dp(TaskCardLayoutMetrics.BODY_VERTICAL_PADDING_DP)
+        );
 
         TextView marker = new TextView(this);
         marker.setText(statusMark(task.status));
@@ -339,34 +345,44 @@ public final class MainActivity extends Activity {
 
         LinearLayout side = new LinearLayout(this);
         side.setOrientation(LinearLayout.VERTICAL);
-        side.setGravity(Gravity.RIGHT);
+        side.setGravity(Gravity.CENTER_HORIZONTAL);
+        side.setMinimumHeight(dp(TaskCardLayoutMetrics.ACTION_RAIL_MIN_HEIGHT_DP));
+        side.setPadding(
+            0,
+            dp(TaskCardLayoutMetrics.ACTION_RAIL_VERTICAL_INSET_DP),
+            0,
+            dp(TaskCardLayoutMetrics.ACTION_RAIL_VERTICAL_INSET_DP)
+        );
 
         if (showArchive) {
             View restore = actionIconButton(ICON_RESTORE, STATUS_GREEN, Color.rgb(236, 253, 245), "Вернуть задачу");
             restore.setOnClickListener(v -> restoreTask(task));
-            side.addView(restore, new LinearLayout.LayoutParams(dp(34), dp(34)));
+            side.addView(restore, actionIconLayoutParams());
 
             View spacer = new View(this);
-            side.addView(spacer, new LinearLayout.LayoutParams(dp(34), 0, 1));
+            side.addView(spacer, actionSpacerLayoutParams());
 
             View delete = actionIconButton(ICON_DELETE, DANGER, Color.rgb(255, 241, 242), "Удалить задачу");
             delete.setOnClickListener(v -> confirmDelete(task));
-            side.addView(delete, new LinearLayout.LayoutParams(dp(34), dp(34)));
+            side.addView(delete, actionIconLayoutParams());
         } else {
             View delete = actionIconButton(ICON_DELETE, DANGER, Color.rgb(255, 241, 242), "Удалить задачу");
             delete.setOnClickListener(v -> confirmDelete(task));
-            side.addView(delete, new LinearLayout.LayoutParams(dp(34), dp(34)));
+            side.addView(delete, actionIconLayoutParams());
 
             View spacer = new View(this);
-            side.addView(spacer, new LinearLayout.LayoutParams(dp(34), 0, 1));
+            side.addView(spacer, actionSpacerLayoutParams());
 
             View edit = actionIconButton(ICON_EDIT, accentColor(), accentSoftColor(), "Изменить задачу");
             edit.setOnClickListener(v -> showTaskDialog(task));
-            side.addView(edit, new LinearLayout.LayoutParams(dp(34), dp(34)));
+            side.addView(edit, actionIconLayoutParams());
         }
 
-        LinearLayout.LayoutParams sideParams = new LinearLayout.LayoutParams(dp(34), ViewGroup.LayoutParams.MATCH_PARENT);
-        sideParams.setMargins(dp(8), 0, 0, 0);
+        LinearLayout.LayoutParams sideParams = new LinearLayout.LayoutParams(
+            dp(TaskCardLayoutMetrics.ACTION_RAIL_WIDTH_DP),
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        sideParams.setMargins(dp(6), 0, 0, 0);
         body.addView(side, sideParams);
         card.addView(body, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
@@ -695,6 +711,19 @@ public final class MainActivity extends Activity {
         button.setClickable(true);
         button.setFocusable(true);
         return button;
+    }
+
+    private LinearLayout.LayoutParams actionIconLayoutParams() {
+        int size = dp(TaskCardLayoutMetrics.ACTION_ICON_SIZE_DP);
+        return new LinearLayout.LayoutParams(size, size);
+    }
+
+    private LinearLayout.LayoutParams actionSpacerLayoutParams() {
+        return new LinearLayout.LayoutParams(
+            dp(TaskCardLayoutMetrics.ACTION_RAIL_WIDTH_DP),
+            dp(TaskCardLayoutMetrics.ACTION_ICON_GAP_DP),
+            1
+        );
     }
 
     private void styleModeButton(Button button, boolean active) {
