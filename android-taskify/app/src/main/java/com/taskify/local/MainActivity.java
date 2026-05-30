@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
@@ -16,12 +17,9 @@ import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.media.AudioManager;
-import android.media.ToneGenerator;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -68,8 +66,9 @@ public final class MainActivity extends Activity {
     private static final int STATUS_GREEN_BG = Color.rgb(209, 250, 229);
     private static final int COMPLETE_GREEN = Color.rgb(16, 185, 129);
     private static final int DANGER = Color.rgb(239, 68, 68);
-
-    private final Handler handler = new Handler(Looper.getMainLooper());
+    private static final int ICON_DELETE = 1;
+    private static final int ICON_EDIT = 2;
+    private static final int ICON_RESTORE = 3;
 
     private TaskDbHelper db;
     private LinearLayout root;
@@ -343,34 +342,30 @@ public final class MainActivity extends Activity {
         side.setGravity(Gravity.RIGHT);
 
         if (showArchive) {
-            TextView restore = iconButton("↩", STATUS_GREEN, Color.rgb(236, 253, 245), "Вернуть задачу");
-            restore.setTextSize(18);
+            View restore = actionIconButton(ICON_RESTORE, STATUS_GREEN, Color.rgb(236, 253, 245), "Вернуть задачу");
             restore.setOnClickListener(v -> restoreTask(task));
-            side.addView(restore, new LinearLayout.LayoutParams(dp(30), dp(30)));
+            side.addView(restore, new LinearLayout.LayoutParams(dp(34), dp(34)));
 
             View spacer = new View(this);
-            side.addView(spacer, new LinearLayout.LayoutParams(dp(30), 0, 1));
+            side.addView(spacer, new LinearLayout.LayoutParams(dp(34), 0, 1));
 
-            TextView delete = iconButton("🗑", DANGER, Color.rgb(255, 241, 242), "Удалить задачу");
-            delete.setTextSize(15);
+            View delete = actionIconButton(ICON_DELETE, DANGER, Color.rgb(255, 241, 242), "Удалить задачу");
             delete.setOnClickListener(v -> confirmDelete(task));
-            side.addView(delete, new LinearLayout.LayoutParams(dp(30), dp(30)));
+            side.addView(delete, new LinearLayout.LayoutParams(dp(34), dp(34)));
         } else {
-            TextView delete = iconButton("🗑", DANGER, Color.rgb(255, 241, 242), "Удалить задачу");
-            delete.setTextSize(15);
+            View delete = actionIconButton(ICON_DELETE, DANGER, Color.rgb(255, 241, 242), "Удалить задачу");
             delete.setOnClickListener(v -> confirmDelete(task));
-            side.addView(delete, new LinearLayout.LayoutParams(dp(30), dp(30)));
+            side.addView(delete, new LinearLayout.LayoutParams(dp(34), dp(34)));
 
             View spacer = new View(this);
-            side.addView(spacer, new LinearLayout.LayoutParams(dp(30), 0, 1));
+            side.addView(spacer, new LinearLayout.LayoutParams(dp(34), 0, 1));
 
-            TextView edit = iconButton("📝", accentColor(), accentSoftColor(), "Изменить задачу");
-            edit.setTextSize(15);
+            View edit = actionIconButton(ICON_EDIT, accentColor(), accentSoftColor(), "Изменить задачу");
             edit.setOnClickListener(v -> showTaskDialog(task));
-            side.addView(edit, new LinearLayout.LayoutParams(dp(30), dp(30)));
+            side.addView(edit, new LinearLayout.LayoutParams(dp(34), dp(34)));
         }
 
-        LinearLayout.LayoutParams sideParams = new LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.MATCH_PARENT);
+        LinearLayout.LayoutParams sideParams = new LinearLayout.LayoutParams(dp(34), ViewGroup.LayoutParams.MATCH_PARENT);
         sideParams.setMargins(dp(8), 0, 0, 0);
         body.addView(side, sideParams);
         card.addView(body, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
@@ -406,9 +401,14 @@ public final class MainActivity extends Activity {
     }
 
     private void playCompleteSound() {
-        ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 65);
-        tone.startTone(ToneGenerator.TONE_PROP_ACK, 130);
-        handler.postDelayed(tone::release, 220);
+        MediaPlayer player = MediaPlayer.create(this, R.raw.task_complete);
+        if (player == null) return;
+        player.setOnCompletionListener(MediaPlayer::release);
+        player.setOnErrorListener((mediaPlayer, what, extra) -> {
+            mediaPlayer.release();
+            return true;
+        });
+        player.start();
     }
 
     private void restoreTask(Task task) {
@@ -688,6 +688,15 @@ public final class MainActivity extends Activity {
         return button;
     }
 
+    private View actionIconButton(int iconType, int color, int background, String description) {
+        View button = new ActionIconView(this, iconType, color);
+        button.setBackground(rounded(background, background, 10));
+        button.setContentDescription(description);
+        button.setClickable(true);
+        button.setFocusable(true);
+        return button;
+    }
+
     private void styleModeButton(Button button, boolean active) {
         button.setTextColor(active ? Color.WHITE : accentColor());
         button.setBackground(active
@@ -946,6 +955,84 @@ public final class MainActivity extends Activity {
         @Override
         public int getOpacity() {
             return PixelFormat.TRANSLUCENT;
+        }
+    }
+
+    private static final class ActionIconView extends View {
+        private final int iconType;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        ActionIconView(Context context, int iconType, int color) {
+            super(context);
+            this.iconType = iconType;
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float width = getWidth();
+            float height = getHeight();
+            float min = Math.min(width, height);
+            float left = (width - min) / 2f + min * 0.25f;
+            float top = (height - min) / 2f + min * 0.25f;
+            float right = width - (width - min) / 2f - min * 0.25f;
+            float bottom = height - (height - min) / 2f - min * 0.25f;
+            paint.setStrokeWidth(Math.max(2f, min * 0.07f));
+
+            if (iconType == ICON_DELETE) {
+                drawDelete(canvas, left, top, right, bottom);
+            } else if (iconType == ICON_EDIT) {
+                drawEdit(canvas, left, top, right, bottom);
+            } else {
+                drawRestore(canvas, left, top, right, bottom);
+            }
+        }
+
+        private void drawDelete(Canvas canvas, float left, float top, float right, float bottom) {
+            float w = right - left;
+            float h = bottom - top;
+            canvas.drawLine(left - w * 0.08f, top + h * 0.2f, right + w * 0.08f, top + h * 0.2f, paint);
+            canvas.drawLine(left + w * 0.28f, top, right - w * 0.28f, top, paint);
+            canvas.drawLine(left + w * 0.38f, top, left + w * 0.38f, top + h * 0.2f, paint);
+            canvas.drawLine(right - w * 0.38f, top, right - w * 0.38f, top + h * 0.2f, paint);
+            canvas.drawLine(left + w * 0.08f, top + h * 0.2f, left + w * 0.18f, bottom, paint);
+            canvas.drawLine(right - w * 0.08f, top + h * 0.2f, right - w * 0.18f, bottom, paint);
+            canvas.drawLine(left + w * 0.18f, bottom, right - w * 0.18f, bottom, paint);
+            canvas.drawLine(left + w * 0.42f, top + h * 0.43f, left + w * 0.42f, bottom - h * 0.18f, paint);
+            canvas.drawLine(right - w * 0.42f, top + h * 0.43f, right - w * 0.42f, bottom - h * 0.18f, paint);
+        }
+
+        private void drawEdit(Canvas canvas, float left, float top, float right, float bottom) {
+            float w = right - left;
+            float h = bottom - top;
+            Path page = new Path();
+            page.moveTo(left + w * 0.08f, top);
+            page.lineTo(right - w * 0.22f, top);
+            page.lineTo(right, top + h * 0.22f);
+            page.lineTo(right, bottom);
+            page.lineTo(left + w * 0.08f, bottom);
+            page.close();
+            canvas.drawPath(page, paint);
+            canvas.drawLine(right - w * 0.22f, top, right - w * 0.22f, top + h * 0.22f, paint);
+            canvas.drawLine(right - w * 0.22f, top + h * 0.22f, right, top + h * 0.22f, paint);
+            canvas.drawLine(left + w * 0.35f, bottom - h * 0.15f, right + w * 0.04f, top + h * 0.46f, paint);
+            canvas.drawLine(right + w * 0.04f, top + h * 0.46f, right - w * 0.1f, top + h * 0.32f, paint);
+            canvas.drawLine(left + w * 0.35f, bottom - h * 0.15f, left + w * 0.22f, bottom - h * 0.02f, paint);
+        }
+
+        private void drawRestore(Canvas canvas, float left, float top, float right, float bottom) {
+            float w = right - left;
+            float h = bottom - top;
+            canvas.drawLine(left, top + h * 0.45f, left + w * 0.35f, top + h * 0.12f, paint);
+            canvas.drawLine(left, top + h * 0.45f, left + w * 0.35f, top + h * 0.78f, paint);
+            Path curve = new Path();
+            curve.moveTo(left + w * 0.05f, top + h * 0.45f);
+            curve.cubicTo(left + w * 0.55f, top + h * 0.42f, right, top + h * 0.55f, right - w * 0.18f, bottom);
+            canvas.drawPath(curve, paint);
         }
     }
 }
