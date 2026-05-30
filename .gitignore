@@ -47,3 +47,9 @@ next-env.d.ts
 # Local development logs
 dev-server.log
 dev-server.err
+
+# Android local tooling and build outputs
+/.android-build-tools/
+/android-taskify/.gradle/
+/android-taskify/build/
+/android-taskify/app/build/

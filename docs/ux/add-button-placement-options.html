@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Taskify add button options</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #e9edf5;
+      color: #1a1b2e;
+      font-family: Arial, sans-serif;
+      display: grid;
+      place-items: start center;
+      padding: 24px;
+    }
+
+    .page {
+      width: min(100%, 1120px);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0 0 18px;
+      color: #667085;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(260px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .label {
+      margin: 0 0 10px;
+      color: #475467;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .note {
+      margin: 12px 0 0;
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 360px;
+      min-height: 760px;
+      margin: 0 auto;
+      border: 10px solid #111827;
+      border-radius: 32px;
+      background: #f4f6fb;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(17, 24, 39, .22);
+    }
+
+    .top {
+      background: #ffffff;
+      padding: 28px 18px 14px;
+      border-bottom: 1px solid #e8eaf0;
+    }
+
+    .brand-row,
+    .list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .counter {
+      color: #6b7280;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .tab {
+      height: 38px;
+      border-radius: 10px;
+      border: 0;
+      background: #f0eeff;
+      color: #7c6af7;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      background: #7c6af7;
+      color: white;
+    }
+
+    .list {
+      padding: 14px 14px 22px;
+    }
+
+    .add-wide {
+      width: 100%;
+      height: 42px;
+      margin: 0 0 12px;
+      border: 0;
+      border-radius: 12px;
+      background: #7c6af7;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 6px 0 rgba(124, 106, 247, .20), 0 14px 24px rgba(124, 106, 247, .22);
+    }
+
+    .add-inline {
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: 12px;
+      background: #7c6af7;
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 5px 0 rgba(124, 106, 247, .20), 0 10px 18px rgba(124, 106, 247, .18);
+      flex: 0 0 auto;
+    }
+
+    .add-inline svg,
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .section-title {
+      color: #475467;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .task {
+      position: relative;
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 10px;
+      min-height: 88px;
+      margin-bottom: 10px;
+      padding: 11px 9px 10px 12px;
+      background: #ffffff;
+      border: 1px solid #e7e9f0;
+      border-radius: 14px;
+      box-shadow: 0 8px 0 rgba(31, 41, 55, .08), 0 16px 30px rgba(15, 23, 42, .10);
+      clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+    }
+
+    .priority {
+      position: absolute;
+      left: 0;
+      top: 14px;
+      bottom: 14px;
+      width: 4px;
+      background: #ef4444;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .priority.medium {
+      background: #f59e0b;
+    }
+
+    .priority.low {
+      background: #10b981;
+    }
+
+    .check {
+      width: 22px;
+      height: 22px;
+      margin-top: 2px;
+      border: 2px solid #10b981;
+      border-radius: 999px;
+      background: #ffffff;
+    }
+
+    .content {
+      min-width: 0;
+      padding-right: 4px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+
+    .desc {
+      margin: 3px 0 0;
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.28;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 7px;
+    }
+
+    .chip {
+      min-height: 20px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .chip.red {
+      color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .chip.amber {
+      color: #b45309;
+      background: #fffbeb;
+    }
+
+    .chip.green {
+      color: #059669;
+      background: #ecfdf5;
+    }
+
+    .due {
+      margin-top: 6px;
+      color: #667085;
+      font-size: 11px;
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 7px;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 10px;
+      color: #6b7280;
+      background: #f3f4f6;
+      display: grid;
+      place-items: center;
+      line-height: 1;
+    }
+
+    .icon-btn.danger {
+      color: #ef4444;
+      background: #fff1f2;
+    }
+
+    .icon-btn.edit {
+      color: #7c6af7;
+      background: #f0eeff;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .phone {
+        max-width: 390px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>Taskify: кнопка создания над списком</h1>
+    <p class="lead">Все варианты используют первый рекомендованный стиль карточек. Разница только в том, где живет действие создания новой задачи.</p>
+
+    <section class="grid">
+      <div>
+        <p class="label">A. Широкая кнопка под вкладками</p>
+        <div class="phone">
+          <div class="top">
+            <div class="brand">Taskify</div>
+            <div class="counter">5 активных · 2 в архиве</div>
+            <div class="tabs">
+              <button class="tab active">Задачи</button>
+              <button class="tab">Архив</button>
+            </div>
+          </div>
+          <div class="list">
+            <button class="add-wide">+ Новая задача</button>
+            <article class="task">
+              <div class="priority"></div>
+              <div class="check"></div>
+              <div class="content">
+                <p class="title">Подготовить демонстрацию Taskify</p>
+                <p class="desc">Проверить создание задач, архив и удобство карточек.</p>
+                <div class="chips">
+                  <span class="chip red">Высокий</span>
+                  <span class="chip amber">Сегодня</span>
+                </div>
+                <div class="due">сб, 30 мая · 18:30</div>
+              </div>
+              <div class="side">
+                <button class="icon-btn danger" aria-label="Удалить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>
+                  </svg>
+                </button>
+                <button class="icon-btn edit" aria-label="Изменить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M10 17l1-4 6-6 3 3-6 6z"></path>
+                  </svg>
+                </button>
+              </div>
+            </article>
+            <article class="task">
+              <div class="priority medium"></div>
+              <div class="check"></div>
+              <div class="content">
+                <p class="title">Отполировать интерфейс карточек</p>
+                <div class="chips">
+                  <span class="chip amber">Средний</span>
+                  <span class="chip green">UI</span>
+                </div>
+              </div>
+              <div class="side">
+                <button class="icon-btn danger" aria-label="Удалить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>
+                  </svg>
+                </button>
+                <button class="icon-btn edit" aria-label="Изменить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M10 17l1-4 6-6 3 3-6 6z"></path>
+                  </svg>
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <p class="note">Самое очевидное действие. Минус: забирает одну строку высоты, но все равно выше списка.</p>
+      </div>
+
+      <div>
+        <p class="label">B. Плюс рядом со счетчиком</p>
+        <div class="phone">
+          <div class="top">
+            <div class="brand-row">
+              <div>
+                <div class="brand">Taskify</div>
+                <div class="counter">5 активных · 2 в архиве</div>
+              </div>
+              <button class="add-inline" aria-label="Новая задача">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14"></path><path d="M5 12h14"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="tabs">
+              <button class="tab active">Задачи</button>
+              <button class="tab">Архив</button>
+            </div>
+          </div>
+          <div class="list">
+            <article class="task">
+              <div class="priority"></div>
+              <div class="check"></div>
+              <div class="content">
+                <p class="title">Подготовить демонстрацию Taskify</p>
+                <p class="desc">Проверить создание задач, архив и удобство карточек.</p>
+                <div class="chips">
+                  <span class="chip red">Высокий</span>
+                  <span class="chip amber">Сегодня</span>
+                </div>
+                <div class="due">сб, 30 мая · 18:30</div>
+              </div>
+              <div class="side">
+                <button class="icon-btn danger" aria-label="Удалить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>
+                  </svg>
+                </button>
+                <button class="icon-btn edit" aria-label="Изменить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M10 17l1-4 6-6 3 3-6 6z"></path>
+                  </svg>
+                </button>
+              </div>
+            </article>
+            <article class="task">
+              <div class="priority medium"></div>
+              <div class="check"></div>
+              <div class="content">
+                <p class="title">Отполировать интерфейс карточек</p>
+                <div class="chips">
+                  <span class="chip amber">Средний</span>
+                  <span class="chip green">UI</span>
+                </div>
+              </div>
+              <div class="side">
+                <button class="icon-btn danger" aria-label="Удалить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>
+                  </svg>
+                </button>
+                <button class="icon-btn edit" aria-label="Изменить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M10 17l1-4 6-6 3 3-6 6z"></path>
+                  </svg>
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <p class="note">Самый компактный вариант: список начинается выше, но плюс менее заметен.</p>
+      </div>
+
+      <div>
+        <p class="label">C. Плюс справа над списком</p>
+        <div class="phone">
+          <div class="top">
+            <div class="brand">Taskify</div>
+            <div class="counter">5 активных · 2 в архиве</div>
+            <div class="tabs">
+              <button class="tab active">Задачи</button>
+              <button class="tab">Архив</button>
+            </div>
+          </div>
+          <div class="list">
+            <div class="list-head" style="margin-bottom: 12px;">
+              <div class="section-title">Сегодня и дальше</div>
+              <button class="add-inline" aria-label="Новая задача">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14"></path><path d="M5 12h14"></path>
+                </svg>
+              </button>
+            </div>
+            <article class="task">
+              <div class="priority"></div>
+              <div class="check"></div>
+              <div class="content">
+                <p class="title">Подготовить демонстрацию Taskify</p>
+                <p class="desc">Проверить создание задач, архив и удобство карточек.</p>
+                <div class="chips">
+                  <span class="chip red">Высокий</span>
+                  <span class="chip amber">Сегодня</span>
+                </div>
+                <div class="due">сб, 30 мая · 18:30</div>
+              </div>
+              <div class="side">
+                <button class="icon-btn danger" aria-label="Удалить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>
+                  </svg>
+                </button>
+                <button class="icon-btn edit" aria-label="Изменить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M10 17l1-4 6-6 3 3-6 6z"></path>
+                  </svg>
+                </button>
+              </div>
+            </article>
+            <article class="task">
+              <div class="priority medium"></div>
+              <div class="check"></div>
+              <div class="content">
+                <p class="title">Отполировать интерфейс карточек</p>
+                <div class="chips">
+                  <span class="chip amber">Средний</span>
+                  <span class="chip green">UI</span>
+                </div>
+              </div>
+              <div class="side">
+                <button class="icon-btn danger" aria-label="Удалить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>
+                  </svg>
+                </button>
+                <button class="icon-btn edit" aria-label="Изменить">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M10 17l1-4 6-6 3 3-6 6z"></path>
+                  </svg>
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <p class="note">Компромисс: плюс близко к списку, но не такой громоздкий, как широкая кнопка.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
